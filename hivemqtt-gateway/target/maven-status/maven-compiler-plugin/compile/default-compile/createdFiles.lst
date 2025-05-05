@@ -1,1 +1,5 @@
-com/system24seven/ignition/hivemqtt/GatewayHook.class
+com/system24seven/ignition/MQTTClient/settings/SettingsCategory.class
+com/system24seven/ignition/MQTTClient/GatewayHook.class
+com/system24seven/ignition/MQTTClient/records/MQSettingsRecord.class
+com/system24seven/ignition/MQTTClient/settings/SettingsManager.class
+com/system24seven/ignition/MQTTClient/settings/MQSettingsPage.class

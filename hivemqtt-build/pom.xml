@@ -44,7 +44,7 @@
                         </projectScope>
                     </projectScopes>
 
-                    <moduleId>com.system24seven.ignition.hivemqtt</moduleId>
+                    <moduleId>com.system24seven.ignition.MQTTClient</moduleId>
                     <moduleName>HiveMQ MQTT Client</moduleName>
                     <moduleDescription>Adds a new Tag Provider providing HiveMQ MQTT Subscription tags</moduleDescription>
                     <moduleVersion>${project.version}</moduleVersion>
@@ -55,7 +55,7 @@
                     <hooks>
                         <hook>
                             <scope>G</scope>
-                            <hookClass>com.system24seven.ignition.hivemqtt.GatewayHook</hookClass>
+                            <hookClass>com.system24seven.ignition.MQTTClient.GatewayHook</hookClass>
                         </hook>
                     </hooks>
                 </configuration>

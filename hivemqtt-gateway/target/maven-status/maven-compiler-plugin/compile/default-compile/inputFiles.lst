@@ -1,1 +1,5 @@
-/Users/davidstone/Documents/SDK/hivemq-module/hivemqtt-gateway/src/main/java/com/system24seven/ignition/hivemqtt/GatewayHook.java
+/Users/davidstone/Documents/SDK/hivemq-module/hivemq-ignition-module/hivemqtt-gateway/src/main/java/com/system24seven/ignition/MQTTClient/GatewayHook.java
+/Users/davidstone/Documents/SDK/hivemq-module/hivemq-ignition-module/hivemqtt-gateway/src/main/java/com/system24seven/ignition/MQTTClient/records/MQSettingsRecord.java
+/Users/davidstone/Documents/SDK/hivemq-module/hivemq-ignition-module/hivemqtt-gateway/src/main/java/com/system24seven/ignition/MQTTClient/settings/SettingsManager.java
+/Users/davidstone/Documents/SDK/hivemq-module/hivemq-ignition-module/hivemqtt-gateway/src/main/java/com/system24seven/ignition/MQTTClient/settings/MQSettingsPage.java
+/Users/davidstone/Documents/SDK/hivemq-module/hivemq-ignition-module/hivemqtt-gateway/src/main/java/com/system24seven/ignition/MQTTClient/settings/SettingsCategory.java
