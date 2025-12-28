@@ -34,6 +34,13 @@
             <artifactId>hivemq-mqtt-client-shaded</artifactId>
             <version>1.3.5</version>
         </dependency>
+        <dependency>
+            <groupId>com.inductiveautomation.ignitionsdk</groupId>
+            <artifactId>driver-api</artifactId>
+            <version>${ignition-sdk-version}</version>
+            <type>pom</type>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>

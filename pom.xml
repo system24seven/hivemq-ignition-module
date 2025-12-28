@@ -12,10 +12,10 @@
     <modules>
         <module>hivemqtt-build</module>
         <module>hivemqtt-gateway</module>
-    </modules>
+	</modules>
 
     <properties>
-        <ignition-platform-version>8.1.0-SNAPSHOT</ignition-platform-version>
+        <ignition-platform-version>8.3.0-SNAPSHOT</ignition-platform-version>
         <ignition-sdk-version>${ignition-platform-version}</ignition-sdk-version>
         <module-name>HiveMQ MQTT Client Module</module-name>
         <module-description>Implements HiveMQTT Client in an Ignition Module</module-description>
