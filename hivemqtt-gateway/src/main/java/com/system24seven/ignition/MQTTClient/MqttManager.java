@@ -1,7 +1,6 @@
 package com.system24seven.ignition.MQTTClient;
 
 import com.hivemq.client.mqtt.MqttClient;
-import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5PublishResult;
@@ -43,13 +42,13 @@ public class MqttManager {
      *
      * @return Mqtt5AsyncClient - the MQTT 5 async client instance
      */
-    public Mqtt5AsyncClient getMqttClient() {
+    public Mqtt5AsyncClient getMqttClient(HiveMqttModuleSettingsResource settings) {
         try {
-          if (false) {
+          if (settings.mqTlsEnable()) {
             client = MqttClient.builder()
                     .identifier("ignition" + "-" + UUID.randomUUID())
-                    .serverHost("192.168.0.10")
-                    .serverPort(8883)
+                    .serverHost(settings.mqHostname())
+                    .serverPort(settings.mqHostPort())
                     .sslWithDefaultConfig()
                     .useMqttVersion5()
                     .executorConfig()
@@ -60,8 +59,8 @@ public class MqttManager {
           } else {
             client = MqttClient.builder()
                     .identifier("ignition" + "-" + UUID.randomUUID())
-                    .serverHost("192.168.0.10")
-                    .serverPort(1883)
+                    .serverHost(settings.mqHostname())
+                    .serverPort(settings.mqHostPort())
                     .useMqttVersion5()
                     .executorConfig()
                     .nettyThreads(1)
@@ -76,38 +75,47 @@ public class MqttManager {
     }
   }
 
-    /**
-     * Subscribes to the specified root topic and connects to the provided MQTT client asynchronously.
-     *
-     * @param client the MQTT 5 async client to subscribe and connect to
-     */
-  public void subscribeAndConnect(Mqtt5AsyncClient client) {
+    public void subscribeAndConnect(Mqtt5AsyncClient client, HiveMqttModuleSettingsResource settings) {
         try {
-            client.subscribeWith()
-                    .topicFilter("#")
+            client
+                    .subscribeWith()
+                    .topicFilter(settings.mqTopic())
                     .qos(AT_LEAST_ONCE)
-                    .callback(mqtt5Publish -> {
-                        try {
-                            onMessage(mqtt5Publish);
-                        } catch (UnsupportedEncodingException | JSONException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
+                    .callback(
+                            mqtt5Publish -> {
+                                try {
+                                    onMessage(mqtt5Publish);
+                                } catch (UnsupportedEncodingException | JSONException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            })
                     .send()
-                    .whenComplete((subAck, throwable) -> logger.trace("Subscribed: " + subAck + ", throwable: " + throwable));
+                    .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                    .whenComplete(
+                            (subAck, throwable) ->
+                                    logger.trace("Subscribed: " + subAck + ", throwable: " + throwable))
+                    .completeOnTimeout(null, 10, java.util.concurrent.TimeUnit.SECONDS);
 
-            client.connectWith()
-                .noSessionExpiry()
-                .simpleAuth()
-                .username("")
-                .password("".getBytes(StandardCharsets.UTF_8))
-                .applySimpleAuth()
-                .send()
-                .whenComplete((mqtt5ConnAck, throwable) -> logger.debug("Connected: " + mqtt5ConnAck + ", throwable: " + throwable));
+            client
+                    .connectWith()
+                    .noSessionExpiry()
+                    .simpleAuth()
+                    .username(settings.mqUsername())
+                    .password(settings.mqPassword().getBytes(StandardCharsets.UTF_8))
+                    .applySimpleAuth()
+                    .send()
+                    .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                    .whenComplete(
+                            (mqtt5ConnAck, throwable) ->
+                                    logger.debug("Connected: " + mqtt5ConnAck + ", throwable: " + throwable))
+                    .completeOnTimeout(null, 10, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
             logger.fatal("Error starting up broker connection.", e);
         }
-  }
+        if (client == null) {
+            logger.error("MCP-Driver failed to connect to MQTT. Please check your settings.");
+        }
+    }
 
     /**
      * Processes the received MQTT message.
