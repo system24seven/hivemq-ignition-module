@@ -18,6 +18,26 @@
             <artifactId>hivemqtt-gateway</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.system24seven.ignition</groupId>
+            <artifactId>hivemqtt-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.system24seven.ignition</groupId>
+            <artifactId>hivemqtt-webui</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.system24seven.ignition</groupId>
+            <artifactId>hivemqtt-designer</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.system24seven.ignition</groupId>
+            <artifactId>hivemqtt-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -46,9 +66,21 @@
                             <name>hivemqtt-webui</name>
                             <scope>G</scope>
                         </projectScope>
+                        <projectScope>
+                            <name>hivemqtt-common</name>
+                            <scope>GCD</scope>
+                        </projectScope>
+                        <projectScope>
+                            <name>hivemqtt-designer</name>
+                            <scope>DC</scope>
+                        </projectScope>
+                        <projectScope>
+                            <name>hivemqtt-client</name>
+                            <scope>C</scope>
+                        </projectScope>
                     </projectScopes>
 
-                    <moduleId>com.system24seven.ignition.MQTTClient</moduleId>
+                    <moduleId>com.system24seven.ignition.hivemqtt</moduleId>
                     <moduleName>HiveMQ MQTT Client</moduleName>
                     <moduleDescription>Adds a new Tag Provider providing HiveMQ MQTT Subscription tags</moduleDescription>
                     <moduleVersion>${project.version}</moduleVersion>
@@ -59,7 +91,15 @@
                     <hooks>
                         <hook>
                             <scope>G</scope>
-                            <hookClass>com.system24seven.ignition.MQTTClient.GatewayHook</hookClass>
+                            <hookClass>com.system24seven.ignition.hivemqtt.GatewayHook</hookClass>
+                        </hook>
+                        <hook>
+                            <scope>D</scope>
+                            <hookClass>com.system24seven.ignition.hivemqtt.DesignerHook</hookClass>
+                        </hook>
+                        <hook>
+                            <scope>C</scope>
+                            <hookClass>com.system24seven.ignition.hivemqtt.client.ClientHook</hookClass>
                         </hook>
                     </hooks>
                 </configuration>

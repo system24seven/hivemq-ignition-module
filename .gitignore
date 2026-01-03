@@ -40,3 +40,4 @@ local.properties
 .gradletasknamecache
 .gradle/
 build/
+/hivemqtt-webui/node_modules/

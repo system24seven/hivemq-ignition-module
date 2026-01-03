@@ -13,7 +13,10 @@
         <module>hivemqtt-build</module>
         <module>hivemqtt-gateway</module>
         <module>hivemqtt-webui</module>
-	</modules>
+		<module>hivemqtt-common</module>
+        <module>hivemqtt-designer</module>
+        <module>hivemqtt-client</module>
+    </modules>
 
     <properties>
         <ignition-platform-version>8.3.0-SNAPSHOT</ignition-platform-version>

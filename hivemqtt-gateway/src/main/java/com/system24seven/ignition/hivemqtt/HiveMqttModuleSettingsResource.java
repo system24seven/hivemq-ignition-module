@@ -1,4 +1,4 @@
-package com.system24seven.ignition.MQTTClient;
+package com.system24seven.ignition.hivemqtt;
 
 import com.inductiveautomation.ignition.common.resourcecollection.ResourceType;
 import com.inductiveautomation.ignition.gateway.config.ResourceTypeMeta;
@@ -25,20 +25,23 @@ public record HiveMqttModuleSettingsResource(
         String mqUsername,
     @FormCategory("MQTT Broker") @Label("Password") @FormField(FormFieldType.TEXT)
         String mqPassword,
-    @FormCategory("MQTT Topic") @Label("Topic") @FormField(FormFieldType.TEXT)
+    @FormCategory("MQTT Topic") @Label("Topic")
+    @FormField(FormFieldType.TEXT)
+    @Required
+    @DefaultValue("#")
         String mqTopic,
     @FormCategory("MQTT Broker") @Label("Enable TLS") @FormField(FormFieldType.CHECKBOX)
         Boolean mqTlsEnable) {
-  public static final ResourceType TYPE = new ResourceType("com.system24seven.ignition.MQTTClient", "settings");
+  public static final ResourceType TYPE = new ResourceType("com.system24seven.ignition.hivemqtt", "settings");
 
   public static final HiveMqttModuleSettingsResource DEFAULT =
-      new HiveMqttModuleSettingsResource("192.168.0.10", 1883, "", "", "", false);
+      new HiveMqttModuleSettingsResource("192.168.0.10", 1883, "", "", "#", false);
 
   public static final ResourceTypeMeta<HiveMqttModuleSettingsResource> META =
       ResourceTypeMeta.newBuilder(HiveMqttModuleSettingsResource.class)
           .resourceType(TYPE)
           .singleton()
           .defaultConfig(DEFAULT)
-          .categoryName("HiveMqtt SettingsResource")
+          .categoryName("HiveMqttSettingsResource")
           .build();
 }

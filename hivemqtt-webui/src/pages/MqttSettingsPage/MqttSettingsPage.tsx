@@ -122,7 +122,15 @@ const MqttSettingsPage: React.FC = () => {
         ]}
       />
 
-      <div style={{ padding: "24px" }}>
+      <div
+        style={{
+          maxWidth: "62.5rem",
+          gap: "1rem",
+          padding: "24px",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {error && (
           <Alert
             severity="error"
@@ -143,15 +151,15 @@ const MqttSettingsPage: React.FC = () => {
           </Alert>
         )}
 
-        <Card title={"MQTT Tag Driver Overview"}>
+        <Card title={"MQTT TAG DRIVER"}>
           <p>
-            The MCP-Play MQTT Tag Driver subscribes to a simple MQTT Broker,
-            Creates a Tag Provider in Ignition called [MCP-Play] and mirrors
-            MQTT topics as tags.
+            The MQTT Tag Driver subscribes to a simple MQTT Broker, Creates a
+            Tag Provider in Ignition called [MQTT-Client] and mirrors MQTT
+            topics as tags.
           </p>
         </Card>
 
-        <Card title="Connection">
+        <Card title="CONNECTION">
           <FormLabel htmlFor={"mqHostname"} label={"MQTT Broker IP"}>
             <TextInput
               label="Broker IP"
@@ -160,6 +168,7 @@ const MqttSettingsPage: React.FC = () => {
               onChange={(e) => handleChange("mqHostname", e.target.value)}
               //helperText="MQTT Broker IP or Hostname"
               required
+              style={{ marginBottom: "1.5rem" }}
             />
           </FormLabel>
 
@@ -175,6 +184,7 @@ const MqttSettingsPage: React.FC = () => {
               //="MQTT Broker TCP Port (0-65535)"
               required
               inputProps={{ min: 0, max: 65535 }}
+              style={{ marginBottom: "1.5rem" }}
             />
           </FormLabel>
 
@@ -191,11 +201,12 @@ const MqttSettingsPage: React.FC = () => {
           </FormLabel>
         </Card>
 
-        <Card title="Authentication">
+        <Card title="AUTHENTICATION">
           <FormLabel htmlFor={"mqUsername"} label={"MQTT Username"}>
             <TextInput
               label="Username"
               id="mqUsername"
+              style={{ marginBottom: "1.5rem" }}
               value={settings.mqUsername}
               onChange={(e) => handleChange("mqUsername", e.target.value)}
             />
@@ -212,7 +223,7 @@ const MqttSettingsPage: React.FC = () => {
           </FormLabel>
         </Card>
 
-        <Card title="Security">
+        <Card title="SECURITY">
           <FormLabel htmlFor={"mqTlsEnable"} label="Enable TLS">
             <Checkbox
               id="mqTlsEnable"
