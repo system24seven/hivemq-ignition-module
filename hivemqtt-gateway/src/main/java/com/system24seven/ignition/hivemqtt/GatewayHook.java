@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient;
+import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
 import com.inductiveautomation.ignition.common.licensing.LicenseState;
 import com.inductiveautomation.ignition.common.model.values.QualityCode;
 import com.inductiveautomation.ignition.common.script.ScriptManager;
@@ -31,6 +32,7 @@ public class GatewayHook extends AbstractGatewayModuleHook {
     private ManagedTagProvider tagProvider;
     private HiveMqttModuleSettingsResource settingsResource;
     private static GatewayHook instance;
+    private Mqtt5AsyncClient client;
 
     public static Logger getLogger() {
         return logger;
@@ -99,7 +101,7 @@ public class GatewayHook extends AbstractGatewayModuleHook {
 
         settingsResource = singletonResourceHandler.getResource();
 
-        Mqtt5AsyncClient client = mqttManager.getMqttClient(settingsResource);
+        client = mqttManager.getMqttClient(settingsResource);
         mqttManager.subscribeAndConnect(client, settingsResource);
         logger.debug("Connected to MQTT broker");
     }
@@ -136,6 +138,10 @@ public class GatewayHook extends AbstractGatewayModuleHook {
 
     public HiveMqttModuleSettingsResource getSettings() {
         return settingsResource;
+    }
+
+    public boolean getMqttStatus() {
+        return mqttManager.isConnected();
     }
 
     /**
