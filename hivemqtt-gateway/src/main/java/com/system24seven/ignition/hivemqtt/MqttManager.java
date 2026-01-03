@@ -1,25 +1,24 @@
-package com.system24seven.ignition.MQTTClient;
+package com.system24seven.ignition.hivemqtt;
 
 import com.hivemq.client.mqtt.MqttClient;
+import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5PublishResult;
 import com.inductiveautomation.ignition.common.model.values.QualityCode;
 import com.inductiveautomation.ignition.gateway.tags.managed.ManagedTagProvider;
-import org.apache.log4j.Logger;
-import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
+import org.slf4j.Logger;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.hivemq.client.mqtt.datatypes.MqttQos.AT_LEAST_ONCE;
+import static com.hivemq.client.mqtt.datatypes.MqttQos.AT_MOST_ONCE;
 
 public class MqttManager {
     private final Logger logger;
@@ -32,7 +31,7 @@ public class MqttManager {
      * @param ourProvider - The managed tag provider for the manager
      */
     public MqttManager(ManagedTagProvider ourProvider){
-        this.logger = GatewayHook.getLogger(this.getClass());
+        this.logger = GatewayHook.getLogger();
         this.tagProvider = ourProvider;
     }
 
@@ -70,7 +69,7 @@ public class MqttManager {
           }
             return client;
         } catch (Exception e) {
-      logger.fatal("Error starting up broker connection.", e);
+      logger.error("Error starting up broker connection.", e);
       return null;
     }
   }
@@ -81,20 +80,12 @@ public class MqttManager {
                     .subscribeWith()
                     .topicFilter(settings.mqTopic())
                     .qos(AT_LEAST_ONCE)
-                    .callback(
-                            mqtt5Publish -> {
-                                try {
-                                    onMessage(mqtt5Publish);
-                                } catch (UnsupportedEncodingException | JSONException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            })
+                    .callback(this::onMessage)
                     .send()
                     .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                     .whenComplete(
                             (subAck, throwable) ->
-                                    logger.trace("Subscribed: " + subAck + ", throwable: " + throwable))
-                    .completeOnTimeout(null, 10, java.util.concurrent.TimeUnit.SECONDS);
+                                    logger.trace("Subscribed: " + subAck + ", throwable: " + throwable));
 
             client
                     .connectWith()
@@ -107,10 +98,9 @@ public class MqttManager {
                     .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                     .whenComplete(
                             (mqtt5ConnAck, throwable) ->
-                                    logger.debug("Connected: " + mqtt5ConnAck + ", throwable: " + throwable))
-                    .completeOnTimeout(null, 10, java.util.concurrent.TimeUnit.SECONDS);
+                                    logger.debug("Connected: " + mqtt5ConnAck + ", throwable: " + throwable));
         } catch (Exception e) {
-            logger.fatal("Error starting up broker connection.", e);
+            logger.error("Error starting up broker connection.", e);
         }
         if (client == null) {
             logger.error("MCP-Driver failed to connect to MQTT. Please check your settings.");
@@ -124,42 +114,18 @@ public class MqttManager {
      * @throws UnsupportedEncodingException if character encoding is not supported
      * @throws JSONException if there is an issue with JSON parsing
      */
-    private void onMessage(final Mqtt5Publish mqtt5Publish) throws UnsupportedEncodingException, JSONException {
+    private void onMessage(final Mqtt5Publish mqtt5Publish) {
         logger.trace("Received message: " + mqtt5Publish);
         String payload = new String(mqtt5Publish.getPayloadAsBytes(), StandardCharsets.UTF_8);
         String baseTopic = removeLastChar(mqtt5Publish.getTopic().toString());
 
-        // Try to parse as JSON and process recursively
         try {
-            JSONObject jsonObject = new JSONObject(payload);
-            processJsonRecursively(baseTopic, jsonObject);
-        } catch (JSONException e) {
-            // Not a JSON object, treat as simple value
             tagProvider.updateValue(baseTopic, payload, QualityCode.Good, Date.from(Instant.now()));
+        } catch (Exception e) {
+            logger.error("Error updating tag value: " + e.getMessage(), e);
         }
     }
 
-    private void processJsonRecursively(String basePath, JSONObject jsonObject) throws JSONException {
-        Iterator<String> keys = jsonObject.keys();
-        Date timestamp = Date.from(Instant.now());
-
-        while (keys.hasNext()) {
-            String key = keys.next();
-            Object value = jsonObject.get(key);
-            String currentPath = basePath + "/" + key;
-
-            if (value instanceof JSONObject) {
-                // Recursively process nested JSON object
-                processJsonRecursively(currentPath, (JSONObject) value);
-            } else if (value instanceof JSONArray) {
-                // Store JSON array as a string
-                tagProvider.updateValue(currentPath, value.toString(), QualityCode.Good, timestamp);
-            } else {
-                // Leaf value - update the tag
-                tagProvider.updateValue(currentPath, value.toString(), QualityCode.Good, timestamp);
-            }
-        }
-    }
 
     private String removeLastChar(String str) {
         if (str != null && !str.isEmpty() && str.charAt(str.length() - 1) == 'x') {
@@ -176,7 +142,16 @@ public class MqttManager {
     public void publishMessage(String topic, String payload) {
         CompletableFuture<Mqtt5PublishResult> result = client.publishWith()
                 .topic(topic)
-                .qos(AT_LEAST_ONCE)
+                .qos(AT_MOST_ONCE)
+                .payload(payload.getBytes())
+                .send()
+                .whenComplete((mqtt5PublishResult, throwable) -> logger.trace("Message Sent: " + mqtt5PublishResult));
+    }
+
+    public void publishMessageWithQos(String topic, String payload, MqttQos qualityCode) {
+        CompletableFuture<Mqtt5PublishResult> result = client.publishWith()
+                .topic(topic)
+                .qos(qualityCode)
                 .payload(payload.getBytes())
                 .send()
                 .whenComplete((mqtt5PublishResult, throwable) -> logger.trace("Message Sent: " + mqtt5PublishResult));
