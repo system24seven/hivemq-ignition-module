@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.system24seven.ignition</groupId>
         <artifactId>hivemqtt</artifactId>
-        <version>1.2.0-SNAPSHOT</version>
+        <version>1.2.1.20260103</version>
     </parent>
 
     <artifactId>hivemqtt-gateway</artifactId>
@@ -51,12 +51,6 @@
             <version>${ignition-sdk-version}</version>
             <type>pom</type>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.system24seven.ignition</groupId>
-            <artifactId>hivemqtt-common</artifactId>
-            <version>1.2.0-SNAPSHOT</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
 
