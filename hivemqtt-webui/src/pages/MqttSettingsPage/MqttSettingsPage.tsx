@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  AlertStates,
   ButtonColorClasses,
   Card,
   Checkbox,
@@ -33,9 +34,18 @@ const MqttSettingsPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    connected: boolean;
+    loading: boolean;
+  }>({
+    connected: false,
+    loading: true,
+  });
 
   useEffect(() => {
     loadSettings();
+    const interval = setInterval(loadConnectionStatus, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadSettings = async () => {
@@ -54,6 +64,23 @@ const MqttSettingsPage: React.FC = () => {
       setError(err instanceof Error ? err.message : "Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadConnectionStatus = async () => {
+    try {
+      const response = await fetch("/data/hivemqtt/api/mqttStatus");
+      if (!response.ok) {
+        throw new Error("Failed to load connection status");
+      }
+      const data = await response.json();
+      setConnectionStatus({
+        connected: data.connected === "true" || data.connected === true,
+        loading: false,
+      });
+    } catch (err) {
+      console.error("Failed to load MQTT status:", err);
+      setConnectionStatus({ connected: false, loading: false });
     }
   };
 
@@ -110,7 +137,7 @@ const MqttSettingsPage: React.FC = () => {
   return (
     <div>
       <PageHeader
-        id="mcp-play-settings-header"
+        id="mqtt-settings-header"
         pageTitle="MQTT Tag Driver Settings"
         actionButtons={[
           {
@@ -121,6 +148,28 @@ const MqttSettingsPage: React.FC = () => {
           },
         ]}
       />
+
+      <div style={{ maxWidth: "62.5rem", padding: "24px 24px 0 24px" }}>
+        {connectionStatus.loading ? (
+          <Alert
+            state={AlertStates.INFO}
+            title="MQTT Connection"
+            description="Checking connection status..."
+          ></Alert>
+        ) : connectionStatus.connected ? (
+          <Alert
+            state={AlertStates.SUCCESS}
+            title="MQTT Connection"
+            description={"Connected to MQTT Broker"}
+          ></Alert>
+        ) : (
+          <Alert
+            state={AlertStates.ERROR}
+            title="MQTT Connection"
+            description="Disconnected from MQTT Broker. Check your connection settings."
+          ></Alert>
+        )}
+      </div>
 
       <div
         style={{
@@ -133,22 +182,20 @@ const MqttSettingsPage: React.FC = () => {
       >
         {error && (
           <Alert
-            severity="error"
+            state={AlertStates.ERROR}
             style={{ marginBottom: "16px" }}
-            description={"Error"}
-          >
-            {error}
-          </Alert>
+            title={"Error"}
+            description={error}
+          ></Alert>
         )}
 
         {success && (
           <Alert
-            severity="success"
+            state={AlertStates.SUCCESS}
             style={{ marginBottom: "16px" }}
-            description={"Success"}
-          >
-            Settings saved successfully!
-          </Alert>
+            title={"Success"}
+            description="Settings saved successfully!"
+          ></Alert>
         )}
 
         <Card title={"MQTT TAG DRIVER"}>

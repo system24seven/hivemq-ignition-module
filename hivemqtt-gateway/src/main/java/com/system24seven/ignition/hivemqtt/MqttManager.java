@@ -24,6 +24,7 @@ public class MqttManager {
     private final Logger logger;
     private Mqtt5AsyncClient client;
     private final ManagedTagProvider tagProvider;
+    private volatile Boolean connected = false;
 
     /**
      * Represents a manager for handling MQTT operations.
@@ -33,6 +34,10 @@ public class MqttManager {
     public MqttManager(ManagedTagProvider ourProvider){
         this.logger = GatewayHook.getLogger();
         this.tagProvider = ourProvider;
+    }
+
+    public Boolean isConnected() {
+        return connected;
     }
 
     /**
@@ -75,6 +80,7 @@ public class MqttManager {
   }
 
     public void subscribeAndConnect(Mqtt5AsyncClient client, HiveMqttModuleSettingsResource settings) {
+        connected = false;
         try {
             client
                     .subscribeWith()
@@ -84,8 +90,10 @@ public class MqttManager {
                     .send()
                     .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                     .whenComplete(
-                            (subAck, throwable) ->
-                                    logger.trace("Subscribed: " + subAck + ", throwable: " + throwable));
+                            (subAck, throwable) ->{
+                                connected = true;
+                                logger.trace("Subscribed: " + subAck + ", throwable: " + throwable);
+                            });
 
             client
                     .connectWith()
