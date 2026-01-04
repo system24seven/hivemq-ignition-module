@@ -6,7 +6,7 @@
 
     <groupId>com.system24seven.ignition</groupId>
     <artifactId>hivemqtt</artifactId>
-    <version>1.2.1.20260103</version>
+    <version>1.2.2.20260104</version>
     <packaging>pom</packaging>
 
     <modules>
