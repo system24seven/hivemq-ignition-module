@@ -1,12 +1,9 @@
 package com.system24seven.ignition.hivemqtt;
 
-import java.util.Optional;
-
 import com.hivemq.client.mqtt.datatypes.MqttQos;
-import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient;
-import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
 import com.inductiveautomation.ignition.common.licensing.LicenseState;
 import com.inductiveautomation.ignition.common.model.values.QualityCode;
+import com.inductiveautomation.ignition.common.resourcecollection.PushException;
 import com.inductiveautomation.ignition.common.script.ScriptManager;
 import com.inductiveautomation.ignition.common.script.hints.PropertiesFileDocProvider;
 import com.inductiveautomation.ignition.common.sqltags.model.TagProviderMeta;
@@ -22,196 +19,211 @@ import com.inductiveautomation.ignition.gateway.tags.managed.ManagedTagProviderC
 import com.inductiveautomation.ignition.gateway.web.systemjs.SystemJsModule;
 import com.system24seven.ignition.hivemqtt.routes.apiEndpoints;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class GatewayHook extends AbstractGatewayModuleHook {
-    private static final Logger logger = LoggerFactory.getLogger("hivemqtt");
-    private GatewayContext context;
-    private static MqttManager mqttManager;
-    private ManagedTagProvider tagProvider;
-    private HiveMqttModuleSettingsResource settingsResource;
-    private static GatewayHook instance;
-    private Mqtt5AsyncClient client;
+  private static final Logger logger = LoggerFactory.getLogger("hivemqtt");
+  private GatewayContext context;
+  private static MqttManager mqttManager;
+  private ManagedTagProvider tagProvider;
+  private HiveMqttModuleSettingsResource settingsResource;
+  private static GatewayHook instance;
+  private SingletonResourceHandler<HiveMqttModuleSettingsResource> settingsHandler;
 
-    public static Logger getLogger() {
-        return logger;
+  public static Logger getLogger() {
+    return logger;
+  }
+
+  @Override
+  public void setup(GatewayContext context) {
+    this.context = context;
+    instance = this;
+
+    initialiseTagProvider(context);
+
+    try {
+      mqttManager = new MqttManager(tagProvider);
+    } catch (Exception e) {
+      logger.error("Error loading MQTT manager: {}", e.getMessage(), e);
     }
+  }
 
-    @Override
-    public void setup(GatewayContext context) {
-        this.context = context;
-        instance = this;
+  /**
+   * Initializes a managed tag provider for the system, allowing for dynamic tag management and
+   * customization. Configures the tag provider with specific settings such as disabling tag
+   * persistence and enabling tag customization. Additionally, registers a write handler for tag
+   * updates, ensuring that changes to tag values are processed appropriately.
+   *
+   * @param context the gateway context used to create and manage the tag provider
+   */
+  private void initialiseTagProvider(GatewayContext context) {
+    try {
+      ManagedTagProviderConfiguration configuration =
+          ManagedTagProviderConfiguration.builder("MQTTClient")
+              .persistTags(false)
+              .allowTagCustomization(true)
+              .valuePersistence(TagProviderValuePersistence.None)
+              .setAttribute(TagProviderMeta.FLAG_HAS_OPCBROWSE, false)
+              .build();
 
-        try {
-            ManagedTagProviderConfiguration configuration = ManagedTagProviderConfiguration.builder("MQTTClient")
-                    .persistTags(false)
-                    .allowTagCustomization(true)
-                    .valuePersistence(TagProviderValuePersistence.None)
-                    .setAttribute(TagProviderMeta.FLAG_HAS_OPCBROWSE, false)
-                    .build();
-
-            tagProvider = context.getTagManager().getOrCreateManagedProvider(configuration);
-            tagProvider.registerWriteHandler("/*", (TagPath target, Object value) -> {
-                handleWrite(target, value);
-                return QualityCode.Good;
-            });
-        } catch (Exception e) {
-            logger.error("Error setting up MQTT Tag Provider.", e);
-        }
-
-        try {
-            mqttManager = new MqttManager(tagProvider);
-        } catch (Exception e){
-            logger.error("Error loading MQTT manager: " + e.getMessage(), e);
-        }
+      tagProvider = context.getTagManager().getOrCreateManagedProvider(configuration);
+      tagProvider.registerWriteHandler(
+          "/*",
+          (TagPath target, Object value) -> {
+            mqttManager.publishMessageWithQos(
+                target.toString(), value.toString(), MqttQos.AT_LEAST_ONCE);
+            return QualityCode.Good;
+          });
+    } catch (Exception e) {
+      logger.error("Error setting up MQTT Tag Provider.", e);
     }
+  }
 
-    @Override
-    public void startup(LicenseState activationState) {
-        SystemJsModule jsModule =
-                new SystemJsModule(
-                        "com.system24seven.ignition.mcpplay.webui", "/res/hivemqtt/MqttSettingsPage.js");
-        context
-                .getWebResourceManager()
-                .getNavigationModel()
-                .getConnections()
-                .addCategory(
-                        "webuiwebpage",
-                        cat ->
-                                cat.label("MQTT Client")
-                                        .addPage(
-                                                "MQTT Tag Driver",
-                                                page ->
-                                                        page.position(10)
-                                                                // Note the second parameter is the name of the JS component that
-                                                                // was exported
-                                                                .mount("/hivemqtt", "MqttSettingsPage", jsModule)));
+  @Override
+  public void startup(LicenseState activationState) {
+    SystemJsModule jsModule =
+        new SystemJsModule(
+            "com.system24seven.ignition.mcpplay.webui", "/res/hivemqtt/MqttSettingsPage.js");
+    context
+        .getWebResourceManager()
+        .getNavigationModel()
+        .getConnections()
+        .addCategory(
+            "webuiwebpage",
+            cat ->
+                cat.label("MQTT Client")
+                    .addPage(
+                        "MQTT Tag Driver",
+                        page ->
+                            page.position(10)
+                                // Note the second parameter is the name of the JS component that
+                                // was exported
+                                .mount("/hivemqtt", "MqttSettingsPage", jsModule)));
 
-        context
-                .getConfigurationManager()
-                .getResourceTypeMetaRegistry()
-                .register(HiveMqttModuleSettingsResource.META);
+    context
+        .getConfigurationManager()
+        .getResourceTypeMetaRegistry()
+        .register(HiveMqttModuleSettingsResource.META);
 
-        // register changes in the settings and handle
-        SingletonResourceHandler<HiveMqttModuleSettingsResource> singletonResourceHandler = SingletonResourceHandler.newBuilder(HiveMqttModuleSettingsResource.META)
-                .context(context)
-                .onChange(this::updateSettings)
-                .build();
+    // register changes in the settings and handle
+    settingsHandler =
+        SingletonResourceHandler.newBuilder(HiveMqttModuleSettingsResource.META)
+            .context(context)
+            .onChange(this::updateSettings)
+            .build();
+    settingsHandler.startup();
 
-        settingsResource = singletonResourceHandler.getResource();
+    settingsResource = settingsHandler.getResource();
 
-        client = mqttManager.getMqttClient(settingsResource);
-        mqttManager.subscribeAndConnect(client, settingsResource);
-        logger.debug("Connected to MQTT broker");
+    if (mqttManager.initMqttClient(settingsResource)) {
+      logger.info("MQTT broker connection established.");
     }
+  }
 
-    @Override
-    public void shutdown() {
-        //Clean up the things we've registered with the platform, namely, our provider type.
-        try {
-            if (context != null) {
-                //shutdown the mqtt connection
-                mqttManager.disconnect();
-                //Shutdown our provider (and delete all data)
-                mqttManager.shutdown();
-            }
-        } catch (Exception e) {
-            logger.error("Error stopping MQTT Tag Provider module.", e);
-        }
-        logger.info("MQTT Tag Provider module stopped.");
-    }
-
-    private void handleWrite(TagPath target, Object value) {
-        logger.debug("Writing value: " + value + " to tag: " + target);
-        mqttManager.publishMessage(target.toString(), value.toString());
-    }
-
-    // Settings update handler
-    public void updateSettings(HiveMqttModuleSettingsResource settingsRecord) {
+  @Override
+  public void shutdown() {
+    // Clean up the things we've registered with the platform, namely, our provider type.
+    try {
+      if (context != null) {
+        // shutdown the mqtt connection
         mqttManager.disconnect();
-        settingsResource = settingsRecord;
-        Mqtt5AsyncClient client = mqttManager.getMqttClient(settingsResource);
-        mqttManager.subscribeAndConnect(client, settingsResource);
-        logger.debug("Updated MQTT broker settings");
+        // Shutdown our provider (and delete all data)
+        mqttManager.shutdown();
+      }
+    } catch (Exception e) {
+      logger.error("Error stopping MQTT Tag Provider module.", e);
     }
+    logger.info("MQTT Tag Provider module stopped.");
+  }
 
-    public HiveMqttModuleSettingsResource getSettings() {
-        return settingsResource;
+  /**
+   * Updates the MQTT settings and reinitializes the MQTT client with the new settings. This method
+   * disconnects the existing client, updates the settings resource, establishes a new MQTT client,
+   * and subscribes to the specified topic.
+   *
+   * @param settingsRecord the new settings object containing configuration values for the MQTT
+   *     broker, authentication, topic, TLS, etc.
+   */
+  public void updateSettings(HiveMqttModuleSettingsResource settingsRecord) {
+    if(getMqttStatus()){
+      mqttManager.disconnect();
     }
-
-    public boolean getMqttStatus() {
-        return mqttManager.isConnected();
+    try {
+      if (!settingsRecord.equals(settingsResource)) {
+        settingsHandler.updateResource(settingsRecord);
+        settingsResource = settingsHandler.getResource();
+      }
+    } catch (PushException e) {
+      logger.error("Error updating MQTT broker settings: {}{}", e, e.getMessage());
     }
-
-    /**
-     * @return the path to a folder in one of the module's gateway jar files that should be mounted at
-     *     /res/module-id/foldername
-     */
-    @Override
-    public Optional<String> getMountedResourceFolder() {
-        return Optional.of("mounted");
+    if (mqttManager.initMqttClient(settingsResource)) {
+      logger.debug("MQTT broker connection reestablished.");
     }
+  }
 
-    /**
-     * Provides a chance for the module to mount any route handlers it wants. These will be active at
-     * <tt>/data/module-id/*</tt> See {@link RouteGroup} for details. Will be called after startup().
-     */
-    @Override
-    public void mountRouteHandlers(RouteGroup routes) {
-        apiEndpoints.mountRoutes(routes, this);
-    }
+  /** Pulls the current settings reference. */
+  public HiveMqttModuleSettingsResource getSettings() {
+    return settingsResource;
+  }
 
-    /**
-     * Used by the mounting underneath /res/module-id/* and /data/module-id/* as an alternate mounting
-     * path instead of your module id, if present.
-     */
-    @Override
-    public Optional<String> getMountPathAlias() {
-        return Optional.of("hivemqtt");
-    }
+  public boolean getMqttStatus() {
+    return mqttManager.isConnected();
+  }
 
-    /**
-     * Called prior to a 'mounted resource request' being fulfilled by requests to the mounted
-     * resource servlet serving resources from /res/module-id/ (or /res/alias/ if {@link
-     * GatewayHook#getMountPathAlias} is implemented). It is called after the target resource
-     * has been successfully located.
-     *
-     * <p>Primarily intended as an opportunity to amend/alter the response's headers for purposes such
-     * as establishing Cache-Control. By default, Ignition sets no additional headers on a resource
-     * request.
-     *
-     * @param resourcePath path to the resource being returned by the mounted resource request
-     * @param response the response to read/amend.
-     */
-    @Override
-    public void onMountedResourceRequest(String resourcePath, HttpServletResponse response) {}
+  /**
+   * Retrieves the folder name for mounted resources.
+   *
+   * @return an {@link Optional} containing the folder name string "mounted" if it exists.
+   */
+  @Override
+  public Optional<String> getMountedResourceFolder() {
+    return Optional.of("mounted");
+  }
 
-    @Override
-    public void initializeScriptManager(ScriptManager manager) {
-        super.initializeScriptManager(manager);
+  /** Called to mount the api routes for the settings page */
+  @Override
+  public void mountRouteHandlers(RouteGroup routes) {
+    apiEndpoints.mountRoutes(routes, this);
+  }
 
-        manager.addScriptModule(
-                "system.mqtt",
-                new GatewayScriptModule(),
-                new PropertiesFileDocProvider());
-    }
+  @Override
+  public Optional<String> getMountPathAlias() {
+    return Optional.of("hivemqtt");
+  }
 
-    @Override
-    public Optional<GatewayRpcImplementation> getRpcImplementation() {
-        return Optional.of(GatewayRpcImplementation.of(
-                RpcFunctions.SERIALIZER,
-                new RpcFunctionsImpl()
-        ));
-    }
+  @Override
+  public void onMountedResourceRequest(String resourcePath, HttpServletResponse response) {}
 
-    public void publishMessageWithQos(String topic, String payload, int qos) {
-        logger.debug("Writing value: " + payload + " to tag: " + topic);
-        mqttManager.publishMessageWithQos(
-            topic, payload, MqttQos.fromCode(qos));
-        }
+  @Override
+  public void initializeScriptManager(ScriptManager manager) {
+    super.initializeScriptManager(manager);
 
-    public static GatewayHook getInstance() {
-        return instance;
-    }
+    manager.addScriptModule(
+        "system.mqtt", new GatewayScriptModule(), new PropertiesFileDocProvider());
+  }
+
+  /**
+   * Returns an {@link Optional} containing the {@link GatewayRpcImplementation} if the
+   * implementation is available. This provides the RPC functionality required to handle remote
+   * procedure calls for the gateway module, using the specified {@link RpcFunctions} serializer and
+   * {@link RpcFunctionsImpl} implementation.
+   *
+   * @return an {@code Optional} containing the {@code GatewayRpcImplementation} if successfully
+   *     initialized, otherwise an empty {@code Optional}.
+   */
+  @Override
+  public Optional<GatewayRpcImplementation> getRpcImplementation() {
+    return Optional.of(
+        GatewayRpcImplementation.of(RpcFunctions.SERIALIZER, new RpcFunctionsImpl()));
+  }
+
+  public static GatewayHook getInstance() {
+    return instance;
+  }
+
+  public MqttManager getMqttManager() {
+    return mqttManager;
+  }
 }

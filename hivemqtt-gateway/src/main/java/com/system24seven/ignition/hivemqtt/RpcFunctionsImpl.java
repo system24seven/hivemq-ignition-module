@@ -1,5 +1,6 @@
 package com.system24seven.ignition.hivemqtt;
 
+import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.inductiveautomation.ignition.common.project.ClientPermissionsConstants;
 import com.inductiveautomation.ignition.gateway.rpc.RpcDelegate;
 
@@ -21,7 +22,7 @@ public class RpcFunctionsImpl implements RpcFunctions {
         try {
             GatewayHook instance = GatewayHook.getInstance();
             if (instance != null) {
-                instance.publishMessageWithQos(topic, payload, qos);
+                instance.getMqttManager().publishMessageWithQos(topic, payload, MqttQos.fromCode(qos));
             } else {
                 throw new RuntimeException("MQTT Gateway Hook not initialized");
             }

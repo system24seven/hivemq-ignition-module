@@ -29,6 +29,7 @@ const MqttSettingsPage: React.FC = () => {
     mqTopic: "",
     mqTlsEnable: false,
   });
+  let [cachedCsrfToken] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,6 +85,23 @@ const MqttSettingsPage: React.FC = () => {
     }
   };
 
+  async function getCsrfToken(): Promise<string | null> {
+    if (cachedCsrfToken) {
+      return cachedCsrfToken;
+    }
+    try {
+      const response = await fetch("/data/app/session");
+      if (response.ok) {
+        const data = await response.json();
+        cachedCsrfToken = data.csrfToken || null;
+        return cachedCsrfToken;
+      }
+    } catch (error) {
+      console.error("Failed to fetch CSRF token:", error);
+    }
+    return null;
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -94,6 +112,7 @@ const MqttSettingsPage: React.FC = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": (await getCsrfToken()) || "",
         },
         credentials: "include",
         body: JSON.stringify(settings),
