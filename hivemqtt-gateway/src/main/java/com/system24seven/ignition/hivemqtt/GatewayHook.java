@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class GatewayHook extends AbstractGatewayModuleHook {
-  private static final Logger logger = LoggerFactory.getLogger("hivemqtt");
+  private static final Logger logger = LoggerFactory.getLogger("com.system24seven.ignition.hivemqtt");
   private GatewayContext context;
   private static MqttManager mqttManager;
   private ManagedTagProvider tagProvider;
@@ -169,6 +169,7 @@ public class GatewayHook extends AbstractGatewayModuleHook {
   }
 
   public boolean getMqttStatus() {
+    if(mqttManager == null) return false;
     return mqttManager.isConnected();
   }
 

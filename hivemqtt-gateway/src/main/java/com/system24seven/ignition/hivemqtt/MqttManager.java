@@ -8,19 +8,15 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5PublishResult;
 import com.inductiveautomation.ignition.common.model.values.QualityCode;
 import com.inductiveautomation.ignition.gateway.tags.managed.ManagedTagProvider;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-import org.json.JSONException;
 import org.slf4j.Logger;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeoutException;
 
 import static com.hivemq.client.mqtt.datatypes.MqttQos.AT_LEAST_ONCE;
-import static com.hivemq.client.mqtt.datatypes.MqttQos.AT_MOST_ONCE;
 
 public class MqttManager {
     private final Logger logger;
@@ -75,6 +71,10 @@ public class MqttManager {
                     .identifier("ignition" + "-" + UUID.randomUUID())
                     .serverHost(settings.mqHostname())
                     .serverPort(settings.mqHostPort())
+                    .simpleAuth()
+                        .username(settings.mqUsername())
+                        .password(settings.mqPassword().getBytes(StandardCharsets.UTF_8))
+                        .applySimpleAuth()
                     .executorConfig()
                     .nettyThreads(1)
                     .applyExecutorConfig()
@@ -100,32 +100,33 @@ public class MqttManager {
                 if (throwable != null) {
                     connected = false;
                     subscribed = false;
-                    logger.error("Error connecting to MQTT broker: {}", String.valueOf(throwable));
+                    logger.error("Error connecting to MQTT broker", throwable);
                 } else {
                     connected = true;
                     logger.trace("Connected: {}", mqtt5ConnAck);
                 }
-              });
-      client
-          .subscribeWith()
-          .topicFilter(settings.mqTopic())
-          .qos(AT_LEAST_ONCE)
-          .callback(this::onMessage)
-          .send()
-          .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-          .whenComplete(
-              (subAck, throwable) -> {
-                if (throwable != null) {
-                  subscribed = false;
-                  logger.error("Error subscribing to topic: " + throwable);
-                } else {
-                  subscribed = true;
-                  logger.trace("Subscribed: " + subAck);
-                }
+                  client
+                          .subscribeWith()
+                          .topicFilter(settings.mqTopic())
+                          .qos(AT_LEAST_ONCE)
+                          .callback(this::onMessage)
+                          .send()
+                          .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                          .whenComplete(
+                                  (subAck, throwable2) -> {
+                                      if (throwable2 != null) {
+                                          subscribed = false;
+                                          logger.error("Error subscribing to topic: ", throwable2);
+                                      } else {
+                                          subscribed = true;
+                                          logger.trace("Subscribed: {}", subAck);
+                                      }
+                                  });
               });
     } catch (Exception e) {
       logger.error("Error starting up broker connection.", e);
     }
+
     return connected && subscribed;
   }
     /**
@@ -134,14 +135,18 @@ public class MqttManager {
      * @param mqtt5Publish the Mqtt5Publish message received
      */
     private void onMessage(final Mqtt5Publish mqtt5Publish) {
-        logger.trace("Received message: " + mqtt5Publish);
+        logger.trace("Received message: {}", mqtt5Publish);
         String payload = new String(mqtt5Publish.getPayloadAsBytes(), StandardCharsets.UTF_8);
         String baseTopic = removeLastChar(mqtt5Publish.getTopic().toString());
 
         try {
             tagProvider.updateValue(baseTopic, payload, QualityCode.Good, Date.from(Instant.now()));
         } catch (Exception e) {
-            logger.error("Error updating tag value: {}", e.getMessage(), e);
+            try {
+                tagProvider.updateValue(baseTopic + "/@Self", payload, QualityCode.Bad, Date.from(Instant.now()));
+            } catch (Exception e1) {
+                logger.error("Error updating tag value: ", e);
+            }
         }
     }
 
